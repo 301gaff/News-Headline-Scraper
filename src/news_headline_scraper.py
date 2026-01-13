@@ -1,45 +1,49 @@
-
 import re
+import urllib.request
+from urllib.error import URLError, HTTPError
 
-POSITIVE_WORDS = {"amazing", "awesome", "good", "great", "fantastic", "enjoyed", "love", "liked", "wonderful", "best"}
-NEGATIVE_WORDS = {"awful", "bad", "boring", "terrible", "worst", "hate", "disliked", "poor", "annoying", "disappointing"}
+def fetch_html(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            return response.read().decode('utf-8')
+    except URLError as e:
+        print(f"Error fetching URL: {e}")
+        return None
 
-def get_user_input():
-    while True:
-        review = input("Enter your movie review: ").strip()
-        if review:
-            return review.lower()
-        print("Please enter a non-empty review.")
+def extract_headlines(html):
+    pattern = r'<h[1-3][^>]*>(.*?)</h[1-3]>'
+    raw_headlines = re.findall(pattern, html, re.IGNORECASE | re.DOTALL)
 
-def extract_words(text):
-    words = re.findall(r'\b\w+\b', text)
-    return set(words)
+    clean_headlines = []
+    for headline in raw_headlines:
+        text = re.sub(r'<[^>]+>', '', headline)
+        text = re.sub(r'&[^;]+;', '', text)
+        text = text.strip()
+        if text and text not in clean_headlines:
+            clean_headlines.append(text)
 
-def count_sentiment_words(words):
-    positive_count = sum(word in POSITIVE_WORDS for word in words)
-    negative_count = sum(word in NEGATIVE_WORDS for word in words)
-    return positive_count, negative_count
+    return clean_headlines
 
-def classify_sentiment(pos_count, neg_count):
-    if pos_count == 0 and neg_count == 0:
-        return "No sentiment detected"
-    if pos_count > neg_count:
-        return "Positive"
-    elif neg_count > pos_count:
-        return "Negative"
-    else:
-        return "Neutral"
-
-def display_results(pos_count, neg_count, sentiment):
-    print(f"\nPositive words: {pos_count}, Negative words: {neg_count}")
-    print(f"Overall Sentiment: {sentiment}")
+def display_headlines(headlines):
+    if not headlines:
+        print("No headlines found.")
+        return
+    print("\n--- Extracted Headlines ---")
+    for idx, headline in enumerate(headlines, 1):
+        print(f"{idx}. {headline}")
 
 def main():
-    review = get_user_input()
-    words = extract_words(review)
-    pos_count, neg_count = count_sentiment_words(words)
-    sentiment = classify_sentiment(pos_count, neg_count)
-    display_results(pos_count, neg_count, sentiment)
+    url = input("Enter the news website URL: ").strip()
+    if not url.startswith("http"):
+        print("Invalid URL. Must start with http:// or https://")
+        return
+
+    html = fetch_html(url)
+    if html:
+        headlines = extract_headlines(html)
+        display_headlines(headlines)
 
 if __name__ == "__main__":
     main()
